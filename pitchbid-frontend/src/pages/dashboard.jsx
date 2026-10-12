@@ -65,7 +65,7 @@ function Dashboard() {
           </h1>
 
           <p className="text-gray-600 mt-3">
-            Create your own cricket auction or join an existing one.
+            Create your own cricket auction and  join an existing one via links .
           </p>
 
         </div>
@@ -104,7 +104,7 @@ function Dashboard() {
 
 
           {/* Join Auction */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-8 hover:shadow-xl transition">
+          {/* <div className="bg-white border border-gray-200 rounded-2xl p-8 hover:shadow-xl transition">
 
             <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center mb-6">
               <span className="text-blue-600 text-2xl font-bold">
@@ -128,7 +128,7 @@ function Dashboard() {
               Join Auction
             </button>
 
-          </div>
+          </div>  */}
 
         </div>
 
