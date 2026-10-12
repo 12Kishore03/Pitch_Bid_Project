@@ -26,7 +26,7 @@ function CallToAction() {
                         items-center gap-4 mt-8">
 
           <button
-            onClick={() => navigate("/login")}
+            onClick={() => navigate("/create-auction")}
             className="bg-white text-blue-600 px-8 py-3 rounded-xl
                        font-semibold hover:bg-gray-100
                        transition duration-300 w-full sm:w-auto"
@@ -35,14 +35,14 @@ function CallToAction() {
           </button>
 
 
-          <button
+          {/* <button
             className="border border-white text-white px-8 py-3
                        rounded-xl font-semibold
                        hover:bg-white hover:text-blue-600
                        transition duration-300 w-full sm:w-auto"
           >
             Join an Auction
-          </button>
+          </button> */}
 
         </div>
 
