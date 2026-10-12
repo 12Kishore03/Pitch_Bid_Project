@@ -8,8 +8,9 @@ import Dashboard from "../pages/Dashboard";
 
 import ProtectedRoutes from "./ProtectedRoutes";
 import CreateAuction from "../pages/createAuction";
-import PlayerRegistration from "../pages/playerRegistration";
+import PlayerRegistration from "../pages/PlayerRegistration";
 import TeamOwnerRegistration from "../pages/teamOwnerRegistration";
+import JoinAuction from "../pages/joinAuction";
 
 
 function AppRoutes() {
@@ -58,12 +59,15 @@ function AppRoutes() {
     </ProtectedRoutes>
   }/>
 
-  <Route
+  {/* <Route
   path="/join-auction/:auctionId"
   element={<PlayerRegistration />}
+/> */}
+
+ <Route
+  path="/join-auction/:auctionId"
+  element={<JoinAuction />}
 />
-
-
 
     </Routes>
   );
