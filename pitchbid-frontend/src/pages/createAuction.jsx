@@ -1,5 +1,6 @@
 
 import { useRef, useState } from "react";
+import { saveAuction } from "../utils/AuctionStroage";
 
 const steps = [
   "Basic Information",
@@ -438,29 +439,37 @@ function CreateAuction() {
   };
 
   const createAuction = () => {
-    if (!validateAllSteps()) {
-      return;
-    }
+  if (!validateAllSteps()) {
+    return;
+  }
 
-    const auctionId = `PB-${Date.now()}`;
-    const baseUrl = window.location.origin;
+  const auctionId = `PB-${Date.now()}`;
+  const baseUrl = window.location.origin;
 
-    const auction = {
-      ...formData,
-      id: auctionId,
-      status: "Upcoming",
-      createdAt: new Date().toISOString(),
-      registrationLinks: {
-        player: `${baseUrl}/join-auction/${auctionId}?role=player`,
-        owner: `${baseUrl}/join-auction/${auctionId}?role=owner`,
-      },
-    };
-
-    // Frontend demo only. This will be sent to Spring Boot later.
-    console.log("Auction created:", auction);
-
-    setCreatedAuction(auction);
+  const auction = {
+    ...formData,
+    id: auctionId,
+    status: "Upcoming",
+    createdAt: new Date().toISOString(),
+    registrationLinks: {
+      player: `${baseUrl}/join-auction/${auctionId}?role=player`,
+      owner: `${baseUrl}/join-auction/${auctionId}?role=owner`,
+    },
   };
+
+  try {
+    saveAuction(auction);
+
+    console.log("Auction saved successfully:", auction);
+    setCreatedAuction(auction);
+  } catch (error) {
+    console.error("Failed to save auction:", error);
+
+    setError(
+      "Unable to save this auction in your browser. Check browser storage settings and try again."
+    );
+  }
+};
 
   const copyLink = async (link, label) => {
     try {

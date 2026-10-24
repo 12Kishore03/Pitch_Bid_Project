@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
+import { savePlayerRegistration } from "../utils/RegistrationStorage";
+
+
 
 const initialData = {
   fullName: "",
@@ -116,21 +119,34 @@ function PlayerRegistration() {
       return;
     }
 
-    // Frontend-only registration object.
-    // This will later be sent to Spring Boot.
+    // Save the registration locally until the Spring Boot backend is added.
+    // Store photo metadata only; browser File objects cannot be JSON-stringified.
     const playerRegistration = {
+      id: `PR-${crypto.randomUUID()}`,
       auctionId,
       ...formData,
+      basePrice: Number(formData.basePrice),
+      profilePhoto: formData.profilePhoto
+        ? {
+            name: formData.profilePhoto.name,
+            type: formData.profilePhoto.type,
+            size: formData.profilePhoto.size,
+          }
+        : null,
       status: "Pending Approval",
       registeredAt: new Date().toISOString(),
     };
 
-    console.log(
-      "Player Registration:",
-      playerRegistration
-    );
-
-    setSubmitted(true);
+    try {
+      savePlayerRegistration(playerRegistration);
+      setSubmitted(true);
+    } catch (saveError) {
+      console.error("Failed to save player registration:", saveError);
+      setError(
+        saveError.message ||
+          "Unable to save your registration. Please try again."
+      );
+    }
   };
 
   const handleReset = () => {

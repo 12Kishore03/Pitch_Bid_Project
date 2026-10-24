@@ -1,26 +1,24 @@
 
-import { Navigate } from "react-router-dom";
-
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-
 function ProtectedRoutes({ children }) {
-
   const { isAuthenticated } = useAuth();
+  const location = useLocation();
 
-
-  // User is not logged in
+  // Redirect unauthenticated users to login
   if (!isAuthenticated) {
-
-    return <Navigate to="/login" replace />;
-
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location }}
+      />
+    );
   }
 
-
-  // User is authenticated
+  // Allow authenticated users to access the requested page
   return children;
 }
 
-
 export default ProtectedRoutes;
-

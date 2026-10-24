@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation ,useNavigate } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
 
@@ -8,8 +8,11 @@ import { useAuth } from "../context/AuthContext";
 function Login() {
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { login } = useAuth();
+   const redirectTo =
+    location.state?.from?.pathname || "/dashboard";
 
 
   const [email, setEmail] = useState("");
@@ -48,7 +51,9 @@ function Login() {
 
 
     // Redirect after login
-    navigate("/dashboard");
+    // navigate("/dashboard");
+    
+    navigate(redirectTo, { replace: true });
   };
 
 
