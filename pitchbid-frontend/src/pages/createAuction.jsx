@@ -1,5 +1,6 @@
 
 import { useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { saveAuction } from "../utils/AuctionStroage";
 
 const steps = [
@@ -281,6 +282,9 @@ function formatValue(key, value) {
 }
 
 function CreateAuction() {
+
+  const navigate = useNavigate();
+  
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState({ ...initialData });
   const [error, setError] = useState("");
@@ -458,10 +462,15 @@ function CreateAuction() {
   };
 
   try {
+    // Save the auction before navigating to its management page.
     saveAuction(auction);
 
     console.log("Auction saved successfully:", auction);
-    setCreatedAuction(auction);
+
+    // Keep the creator on the exact auction they just created.
+    navigate(`/auction-management/${auctionId}`, {
+      replace: true,
+    });
   } catch (error) {
     console.error("Failed to save auction:", error);
 
@@ -564,7 +573,7 @@ function CreateAuction() {
             </div>
 
             {/* Player link */}
-            {createdAuction.playerRegistration && (
+            {createdAuction.playerRegistration && createdAuction.registrationLinks?.player && (
               <div className="mt-6 rounded-xl border border-blue-200 p-5">
                 <div className="flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-100 text-xl">
@@ -604,7 +613,7 @@ function CreateAuction() {
             )}
 
             {/* Owner link */}
-            {createdAuction.teamRegistration && (
+            {createdAuction.teamRegistration && createdAuction.registrationLinks?.owner && (
               <div className="mt-5 rounded-xl border border-indigo-200 p-5">
                 <div className="flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-indigo-100 text-xl">

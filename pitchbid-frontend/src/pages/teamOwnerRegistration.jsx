@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
+import { saveOwnerRegistration, getOwnerRegistrationsByAuction } from "../utils/OwnerRegistrationStorage";
+import { getRegistrationsByAuction } from "../utils/RegistrationStorage";
 
 const initialData = {
   // Owner personal details
@@ -75,6 +77,33 @@ function TeamOwnerRegistration() {
 
     if (!formData.email.trim()) {
       setError("Please enter your email address.");
+      return;
+    }
+
+    // Prevent a person registered as an individual player from registering
+    // as a team owner in this same auction, and prevent duplicate owners.
+    const normalizedEmail = formData.email.trim().toLowerCase();
+    const existingPlayers = getRegistrationsByAuction(auctionId);
+    const existingOwners = getOwnerRegistrationsByAuction(auctionId);
+
+    const alreadyRegisteredAsPlayer = existingPlayers.some(
+      (player) => String(player.email || "").trim().toLowerCase() === normalizedEmail
+    );
+
+    if (alreadyRegisteredAsPlayer) {
+      setError(
+        "This email is already registered as an individual player in this auction. A person cannot register as both an individual player and a team owner in the same auction."
+      );
+      return;
+    }
+
+    const alreadyRegisteredAsOwner = existingOwners.some(
+      (registration) =>
+        String(registration.owner?.email || "").trim().toLowerCase() === normalizedEmail
+    );
+
+    if (alreadyRegisteredAsOwner) {
+      setError("This email is already registered as a team owner in this auction.");
       return;
     }
 
@@ -195,12 +224,15 @@ function TeamOwnerRegistration() {
       registeredAt: new Date().toISOString(),
     };
 
-    console.log(
-      "Team Owner Registration:",
-      ownerRegistration
-    );
-
-    setSubmitted(true);
+    try {
+      saveOwnerRegistration(ownerRegistration);
+      setSubmitted(true);
+    } catch (saveError) {
+      console.error("Failed to save team owner registration:", saveError);
+      setError(
+        saveError.message || "Unable to save your team registration. Please try again."
+      );
+    }
   };
 
   const handleReset = () => {

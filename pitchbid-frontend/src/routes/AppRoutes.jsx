@@ -15,6 +15,7 @@ import AuctionDetails from "../pages/auctionDetails";
 import AuctionManagement from "../pages/auctionManagement";
 import EditAuction from "../pages/editAcution";
 import PlayersRegistrationCreatorManage from "../pages/PlayersRegistrationCreatorManage";
+import TeamOwnerManagement from "../pages/teamOwnerManagement";
 
 
 function AppRoutes() {
@@ -110,6 +111,17 @@ function AppRoutes() {
     </ProtectedRoutes>
   }
 />
+
+<Route
+  path="/auction-management/:auctionId/owners"
+  element={
+    <ProtectedRoutes>
+      <TeamOwnerManagement />
+    </ProtectedRoutes>
+  }
+/>
+
+
     </Routes>
   );
 }

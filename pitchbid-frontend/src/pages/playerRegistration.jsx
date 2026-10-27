@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { savePlayerRegistration } from "../utils/RegistrationStorage";
+import {
+  savePlayerRegistration,
+  getRegistrationsByAuction,
+} from "../utils/RegistrationStorage";
+
+import { getOwnerRegistrationsByAuction } from "../utils/OwnerRegistrationStorage";
 
 
 
@@ -66,6 +71,37 @@ function PlayerRegistration() {
       setError("Please enter your email address.");
       return;
     }
+    // Prevent duplicate player registration within this auction.
+const normalizedEmail = formData.email.trim().toLowerCase();
+
+const existingOwners = getOwnerRegistrationsByAuction(auctionId);
+const existingPlayers = getRegistrationsByAuction(auctionId);
+
+const isAlreadyTeamOwner = existingOwners.some(
+  (registration) =>
+    String(registration.owner?.email || "")
+      .trim()
+      .toLowerCase() === normalizedEmail
+);
+
+if (isAlreadyTeamOwner) {
+  setError(
+    "You are already registered as a team owner and Player #1 for this auction. You do not need to register again."
+  );
+  return;
+}
+
+const isAlreadyRegisteredPlayer = existingPlayers.some(
+  (player) =>
+    String(player.email || "").trim().toLowerCase() === normalizedEmail
+);
+
+if (isAlreadyRegisteredPlayer) {
+  setError(
+    "This email is already registered as a player for this auction."
+  );
+  return;
+}
 
     if (!formData.phone.trim()) {
       setError("Please enter your phone number.");
