@@ -16,6 +16,7 @@ import AuctionManagement from "../pages/auctionManagement";
 import EditAuction from "../pages/editAcution";
 import PlayersRegistrationCreatorManage from "../pages/PlayersRegistrationCreatorManage";
 import TeamOwnerManagement from "../pages/teamOwnerManagement";
+import LiveAuction from "../pages/LiveAuction";
 
 
 function AppRoutes() {
@@ -121,6 +122,14 @@ function AppRoutes() {
   }
 />
 
+<Route
+  path="/live-auction/:auctionId"
+  element={
+  <ProtectedRoutes>
+       <LiveAuction /> 
+  </ProtectedRoutes>
+}
+/>
 
     </Routes>
   );

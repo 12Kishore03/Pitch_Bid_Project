@@ -1,12 +1,13 @@
 
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { getAuctionById } from "../utils/AuctionStroage";
 import { getRegistrationsByAuction } from "../utils/RegistrationStorage";
 import { getOwnerRegistrationsByAuction } from "../utils/OwnerRegistrationStorage";
 
 function AuctionManagement() {
   const { auctionId } = useParams();
+  const navigate = useNavigate();
   const [copyMessage, setCopyMessage] = useState("");
 
   const auction = getAuctionById(auctionId);
@@ -419,16 +420,54 @@ function AuctionManagement() {
           </p>
         </section>
 
-        {/* Live auction preview */}
-        <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-          <h2 className="text-lg font-bold text-amber-900">
-            Live Auction
-          </h2>
+        {/* Live auction entry */}
+        <section className="mt-6 rounded-2xl border border-blue-100 bg-white p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
+                Auction Control Room
+              </p>
+              <h2 className="mt-2 text-2xl font-bold text-blue-950">
+                Live Auction
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
+                Open the live auction screen when all readiness checks are complete.
+                The countdown will not begin until you press Start Bidding on the live screen.
+              </p>
+            </div>
 
-          <p className="mt-2 text-sm leading-6 text-amber-800">
-            Live bidding, the bid timer, and start, pause, and stop
-            controls will be implemented in the next stage.
-          </p>
+            <button
+              type="button"
+              onClick={() => navigate(`/live-auction/${auction.id}`)}
+              disabled={!isAuctionReady}
+              className={`inline-flex shrink-0 items-center justify-center rounded-lg px-6 py-3 font-semibold transition ${
+                isAuctionReady
+                  ? "bg-blue-700 text-white hover:bg-blue-800"
+                  : "cursor-not-allowed bg-gray-200 text-gray-500"
+              }`}
+              title={
+                isAuctionReady
+                  ? "Open the live auction control room"
+                  : "Complete every readiness check before opening the live auction"
+              }
+            >
+              {isAuctionReady ? "Open Live Auction →" : "Complete Checklist First"}
+            </button>
+          </div>
+
+          {!isAuctionReady && (
+            <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800">
+              The live auction is locked until all {readinessChecks.length} readiness checks pass.
+              Review the checklist above and complete each outstanding requirement.
+            </p>
+          )}
+
+          {isAuctionReady && (
+            <p className="mt-4 rounded-lg border border-green-100 bg-green-50 p-3 text-sm leading-6 text-green-800">
+              All readiness checks passed. You can open the live auction screen.
+              Bidding still requires you to press Start Bidding there.
+            </p>
+          )}
         </section>
 
       </div>
