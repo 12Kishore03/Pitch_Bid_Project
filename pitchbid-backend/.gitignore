@@ -35,4 +35,4 @@ build/
 
 #properity files 
 
-/src/main/resources/application.properties
+/src/main/resources/
