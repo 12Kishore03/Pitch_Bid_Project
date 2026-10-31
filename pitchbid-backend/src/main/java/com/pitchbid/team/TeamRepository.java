@@ -12,24 +12,15 @@ public interface TeamRepository extends JpaRepository<Team, Long> {
     long countByAuctionId(Long auctionId);
 
     boolean existsByAuctionIdAndTeamNameIgnoreCase(
-            Long auctionId,
-            String teamName
-    );
+            Long auctionId, String teamName);
 
     boolean existsByAuctionIdAndTeamShortNameIgnoreCase(
-            Long auctionId,
-            String teamShortName
-    );
+            Long auctionId, String teamShortName);
 
-    boolean existsByAuctionIdAndOwnerId(
-            Long auctionId,
-            Long ownerId
-    );
+    boolean existsByAuctionIdAndOwnerEmailIgnoreCase(
+            Long auctionId, String ownerEmail);
 
     List<Team> findByAuctionId(Long auctionId);
 
-    List<Team> findByAuctionIdAndStatus(
-            Long auctionId,
-            String status
-    );
+    List<Team> findByAuctionIdAndStatus(Long auctionId, String status);
 }

@@ -5,7 +5,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import com.pitchbid.auction.Auction;
-import com.pitchbid.user.User;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -30,6 +29,10 @@ import jakarta.persistence.UniqueConstraint;
         @UniqueConstraint(
             name = "uk_team_auction_short_name",
             columnNames = {"auction_id", "team_short_name"}
+        ),
+        @UniqueConstraint(
+            name = "uk_team_auction_owner_email",
+            columnNames = {"auction_id", "owner_email"}
         )
     }
 )
@@ -43,32 +46,37 @@ public class Team {
     @JoinColumn(name = "auction_id", nullable = false)
     private Auction auction;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "owner_user_id", nullable = false)
-    private User owner;
+    @Column(name = "owner_name", nullable = false, length = 100)
+    private String ownerName;
+
+    @Column(name = "owner_email", nullable = false, length = 150)
+    private String ownerEmail;
+
+    @Column(name = "owner_phone", nullable = false, length = 20)
+    private String ownerPhone;
 
     @Column(name = "team_name", nullable = false, length = 100)
     private String teamName;
 
-    @Column(name = "team_short_name", nullable = false, length = 5)
+    @Column(name = "team_short_name", nullable = false, length = 20)
     private String teamShortName;
 
-    @Column(nullable = false, length = 100)
+    @Column(name = "team_city", length = 100)
     private String teamCity;
 
-    @Column(length = 1000)
+    @Column(name = "team_description", length = 1000)
     private String teamDescription;
 
-    @Column(length = 500)
+    @Column(name = "team_logo_path", length = 500)
     private String teamLogoPath;
 
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(name = "remaining_budget", nullable = false, precision = 15, scale = 2)
     private BigDecimal remainingBudget;
 
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, length = 20)
     private String status = "PENDING";
 
-    @Column(nullable = false)
+    @Column(nullable = false, updatable = false)
     private LocalDateTime registeredAt;
 
     protected Team() {
@@ -76,7 +84,9 @@ public class Team {
 
     public Team(
             Auction auction,
-            User owner,
+            String ownerName,
+            String ownerEmail,
+            String ownerPhone,
             String teamName,
             String teamShortName,
             String teamCity,
@@ -84,7 +94,9 @@ public class Team {
             String teamLogoPath) {
 
         this.auction = auction;
-        this.owner = owner;
+        this.ownerName = ownerName;
+        this.ownerEmail = ownerEmail;
+        this.ownerPhone = ownerPhone;
         this.teamName = teamName;
         this.teamShortName = teamShortName;
         this.teamCity = teamCity;
@@ -92,16 +104,13 @@ public class Team {
         this.teamLogoPath = teamLogoPath;
         this.remainingBudget = auction.getTeamBudget();
         this.status = "PENDING";
+        this.registeredAt = LocalDateTime.now();
     }
 
     @PrePersist
     protected void onCreate() {
         if (registeredAt == null) {
             registeredAt = LocalDateTime.now();
-        }
-
-        if (status == null) {
-            status = "PENDING";
         }
     }
 
@@ -113,8 +122,16 @@ public class Team {
         return auction;
     }
 
-    public User getOwner() {
-        return owner;
+    public String getOwnerName() {
+        return ownerName;
+    }
+
+    public String getOwnerEmail() {
+        return ownerEmail;
+    }
+
+    public String getOwnerPhone() {
+        return ownerPhone;
     }
 
     public String getTeamName() {
@@ -151,5 +168,9 @@ public class Team {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public void setRemainingBudget(BigDecimal remainingBudget) {
+        this.remainingBudget = remainingBudget;
     }
 }

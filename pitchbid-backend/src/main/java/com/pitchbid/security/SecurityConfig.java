@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -35,19 +36,33 @@ public class SecurityConfig {
 
         http
             .csrf(csrf -> csrf.disable())
+
             .cors(cors -> {})
+
             .sessionManagement(session ->
                 session.sessionCreationPolicy(
                     SessionCreationPolicy.STATELESS
                 )
             )
+
             .authorizeHttpRequests(auth -> auth
+
+                // Public creator account registration and login
                 .requestMatchers(
                     "/api/auth/register",
                     "/api/auth/login"
                 ).permitAll()
+
+                // Public team-owner registration through an auction link
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/auctions/*/team-registrations"
+                ).permitAll()
+
+                // All other endpoints require authentication
                 .anyRequest().authenticated()
             )
+
             .addFilterBefore(
                 jwtFilter,
                 UsernamePasswordAuthenticationFilter.class
@@ -58,22 +73,36 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+
         CorsConfiguration configuration =
                 new CorsConfiguration();
 
         configuration.setAllowedOrigins(
                 List.of("http://localhost:5173")
         );
+
         configuration.setAllowedMethods(
-                List.of("GET", "POST", "PUT", "PATCH",
-                        "DELETE", "OPTIONS")
+                List.of(
+                    "GET",
+                    "POST",
+                    "PUT",
+                    "PATCH",
+                    "DELETE",
+                    "OPTIONS"
+                )
         );
-        configuration.setAllowedHeaders(List.of("*"));
+
+        configuration.setAllowedHeaders(
+                List.of("*")
+        );
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
 
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration(
+                "/**",
+                configuration
+        );
 
         return source;
     }
