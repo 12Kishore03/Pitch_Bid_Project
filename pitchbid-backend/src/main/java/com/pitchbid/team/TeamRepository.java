@@ -23,4 +23,25 @@ public interface TeamRepository extends JpaRepository<Team, Long> {
     List<Team> findByAuctionId(Long auctionId);
 
     List<Team> findByAuctionIdAndStatus(Long auctionId, String status);
+
+    
+long countByAuctionIdAndStatusNot(Long auctionId, String status);
+
+long countByAuctionIdAndStatusIn(
+        Long auctionId, List<String> statuses);
+
+        
+boolean existsByAuctionIdAndTeamNameIgnoreCaseAndIdNot(
+        Long auctionId,
+        String teamName,
+        Long teamId
+);
+
+boolean existsByAuctionIdAndTeamShortNameIgnoreCaseAndIdNot(
+        Long auctionId,
+        String teamShortName,
+        Long teamId
+);
+
+
 }

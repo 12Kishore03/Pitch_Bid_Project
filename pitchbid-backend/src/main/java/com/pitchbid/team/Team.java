@@ -173,4 +173,26 @@ public class Team {
     public void setRemainingBudget(BigDecimal remainingBudget) {
         this.remainingBudget = remainingBudget;
     }
+
+    
+public void setTeamName(String teamName) {
+    this.teamName = teamName;
+}
+
+public void setTeamShortName(String teamShortName) {
+    this.teamShortName = teamShortName;
+}
+
+public void setTeamCity(String teamCity) {
+    this.teamCity = teamCity;
+}
+
+public void setTeamDescription(String teamDescription) {
+    this.teamDescription = teamDescription;
+}
+
+public void setTeamLogoPath(String teamLogoPath) {
+    this.teamLogoPath = teamLogoPath;
+}
+
 }

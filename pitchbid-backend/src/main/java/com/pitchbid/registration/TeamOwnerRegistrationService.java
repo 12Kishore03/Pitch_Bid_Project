@@ -2,6 +2,7 @@
 package com.pitchbid.registration;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 
 import org.springframework.http.HttpStatus;
@@ -13,6 +14,7 @@ import com.pitchbid.auction.Auction;
 import com.pitchbid.auction.AuctionRepository;
 import com.pitchbid.player.Player;
 import com.pitchbid.player.PlayerRepository;
+import com.pitchbid.registration.dto.TeamOwnerRegistrationDetailsResponse;
 import com.pitchbid.registration.dto.TeamOwnerRegistrationRequest;
 import com.pitchbid.registration.dto.TeamOwnerRegistrationResponse;
 import com.pitchbid.team.Team;
@@ -38,25 +40,34 @@ public class TeamOwnerRegistrationService {
         this.registrationRepository = registrationRepository;
     }
 
+    // =========================================================
+    // 1. REGISTER TEAM OWNER AND CREATE TEAM + OWNER PLAYER #1
+    // =========================================================
+
     @Transactional
     public TeamOwnerRegistrationResponse registerTeamOwner(
             Long auctionId,
             TeamOwnerRegistrationRequest request) {
 
-        // 1. Find the auction.
         Auction auction = auctionRepository.findById(auctionId)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Auction not found"));
+                        HttpStatus.NOT_FOUND,
+                        "Auction not found"));
 
-        // 2. Check whether team registration is enabled.
         if (!auction.isTeamRegistration()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Team registration is disabled for this auction");
         }
 
-        // 3. Check the registration deadline.
         LocalDateTime now = LocalDateTime.now();
+
+        if (auction.getStartDate() != null
+                && !now.isBefore(auction.getStartDate())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Team registration has closed because the auction has started");
+        }
 
         if (auction.getRegistrationDeadline() != null
                 && now.isAfter(auction.getRegistrationDeadline())) {
@@ -65,24 +76,29 @@ public class TeamOwnerRegistrationService {
                     "The registration deadline has passed");
         }
 
-        // 4. Count pending and approved teams toward the team limit.
-        if (teamRepository.countByAuctionId(auctionId)
-                >= auction.getNumberOfTeams()) {
+        // Count only pending and approved teams.
+        long registeredTeams =
+                teamRepository.countByAuctionIdAndStatusIn(
+                        auctionId,
+                        List.of("PENDING", "APPROVED"));
+
+        if (registeredTeams >= auction.getNumberOfTeams()) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
+                    HttpStatus.CONFLICT,
                     "The maximum number of teams has been reached");
         }
 
-        // 5. Normalize user-provided values.
         String ownerName = request.fullName().trim();
-        String ownerEmail = request.email().trim()
+        String ownerEmail = request.email()
+                .trim()
                 .toLowerCase(Locale.ROOT);
         String ownerPhone = request.phone().trim();
         String teamName = request.teamName().trim();
-        String teamShortName = request.teamShortName().trim()
+        String teamShortName = request.teamShortName()
+                .trim()
                 .toUpperCase(Locale.ROOT);
 
-        // 6. Check for duplicate owner registrations.
+        // Prevent duplicate team-owner email registrations.
         if (teamRepository.existsByAuctionIdAndOwnerEmailIgnoreCase(
                     auctionId, ownerEmail)
                 || registrationRepository
@@ -94,7 +110,7 @@ public class TeamOwnerRegistrationService {
                     "This email has already registered as a team owner");
         }
 
-        // 7. Check for duplicate team names.
+        // Prevent duplicate team names.
         if (teamRepository.existsByAuctionIdAndTeamNameIgnoreCase(
                 auctionId, teamName)) {
             throw new ResponseStatusException(
@@ -102,6 +118,7 @@ public class TeamOwnerRegistrationService {
                     "This team name is already registered");
         }
 
+        // Prevent duplicate team short names.
         if (teamRepository.existsByAuctionIdAndTeamShortNameIgnoreCase(
                 auctionId, teamShortName)) {
             throw new ResponseStatusException(
@@ -109,15 +126,19 @@ public class TeamOwnerRegistrationService {
                     "This team short name is already registered");
         }
 
-        // 8. The owner also occupies one player slot.
-        if (playerRepository.countByAuctionId(auctionId) + 1
-                > auction.getMaxAuctionPlayers()) {
+        // The new owner will occupy one player slot.
+        // Rejected players do not count toward the capacity.
+        long existingPlayers =
+                playerRepository.countByAuctionIdAndStatusNot(
+                        auctionId, "REJECTED");
+
+        if (existingPlayers + 1 > auction.getMaxAuctionPlayers()) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
+                    HttpStatus.CONFLICT,
                     "No player slots remain for this auction");
         }
 
-        // 9. Create the team with its initial budget.
+        // Create the team with its initial budget.
         Team team = new Team(
                 auction,
                 ownerName,
@@ -132,7 +153,7 @@ public class TeamOwnerRegistrationService {
 
         team = teamRepository.save(team);
 
-        // 10. Create the owner registration.
+        // Create the team-owner registration.
         TeamOwnerRegistration registration =
                 new TeamOwnerRegistration(
                         auction,
@@ -144,7 +165,7 @@ public class TeamOwnerRegistrationService {
 
         registration = registrationRepository.save(registration);
 
-        // 11. Automatically register the owner as Player #1.
+        // Automatically register the owner as Player #1.
         Player ownerPlayer = new Player(
                 auction,
                 team,
@@ -162,9 +183,9 @@ public class TeamOwnerRegistrationService {
                 "OWNER_PLAYER"
         );
 
+        ownerPlayer.setStatus("PENDING");
         ownerPlayer = playerRepository.save(ownerPlayer);
 
-        // 12. Return the registration details.
         return new TeamOwnerRegistrationResponse(
                 registration.getId(),
                 auction.getId(),
@@ -175,6 +196,235 @@ public class TeamOwnerRegistrationService {
                 teamShortName,
                 registration.getStatus(),
                 ownerPlayer.getPlayerNumber(),
+                registration.getRegisteredAt()
+        );
+    }
+
+    // =========================================================
+    // 2. GET ALL TEAM-OWNER REGISTRATIONS
+    // =========================================================
+
+    @Transactional(readOnly = true)
+    public List<TeamOwnerRegistrationDetailsResponse>
+            getTeamOwnerRegistrations(
+                    Long auctionId,
+                    String creatorEmail) {
+
+        validateCreatorOwnsAuction(auctionId, creatorEmail);
+
+        return registrationRepository
+                .findByAuctionIdOrderByRegisteredAtDesc(auctionId)
+                .stream()
+                .map(this::toTeamOwnerRegistrationDetailsResponse)
+                .toList();
+    }
+
+    // =========================================================
+    // 3. GET TEAM-OWNER REGISTRATIONS BY STATUS
+    // =========================================================
+
+    @Transactional(readOnly = true)
+    public List<TeamOwnerRegistrationDetailsResponse>
+            getTeamOwnerRegistrationsByStatus(
+                    Long auctionId,
+                    String status,
+                    String creatorEmail) {
+
+        String normalizedStatus = validateAndNormalizeStatus(status);
+
+        validateCreatorOwnsAuction(auctionId, creatorEmail);
+
+        return registrationRepository
+                .findByAuctionIdAndStatusOrderByRegisteredAtDesc(
+                        auctionId, normalizedStatus)
+                .stream()
+                .map(this::toTeamOwnerRegistrationDetailsResponse)
+                .toList();
+    }
+
+    // =========================================================
+    // 4. APPROVE TEAM-OWNER REGISTRATION
+    // =========================================================
+
+    @Transactional
+    public TeamOwnerRegistrationDetailsResponse
+            approveTeamOwnerRegistration(
+                    Long auctionId,
+                    Long registrationId,
+                    String creatorEmail) {
+
+        validateCreatorOwnsAuction(auctionId, creatorEmail);
+
+        TeamOwnerRegistration registration =
+                findRegistrationInAuction(auctionId, registrationId);
+
+        if (!"PENDING".equalsIgnoreCase(registration.getStatus())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Only pending team-owner registrations can be approved");
+        }
+
+        Team team = registration.getTeam();
+
+        Player ownerPlayer = findOwnerPlayer(
+                auctionId, registration.getOwnerEmail());
+
+        registration.setStatus("APPROVED");
+        team.setStatus("APPROVED");
+        ownerPlayer.setStatus("APPROVED");
+
+        registrationRepository.save(registration);
+        teamRepository.save(team);
+        playerRepository.save(ownerPlayer);
+
+        return toTeamOwnerRegistrationDetailsResponse(registration);
+    }
+
+    // =========================================================
+    // 5. REJECT TEAM-OWNER REGISTRATION
+    // =========================================================
+
+    @Transactional
+    public TeamOwnerRegistrationDetailsResponse
+            rejectTeamOwnerRegistration(
+                    Long auctionId,
+                    Long registrationId,
+                    String creatorEmail) {
+
+        validateCreatorOwnsAuction(auctionId, creatorEmail);
+
+        TeamOwnerRegistration registration =
+                findRegistrationInAuction(auctionId, registrationId);
+
+        if (!"PENDING".equalsIgnoreCase(registration.getStatus())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Only pending team-owner registrations can be rejected");
+        }
+
+        Team team = registration.getTeam();
+
+        Player ownerPlayer = findOwnerPlayer(
+                auctionId, registration.getOwnerEmail());
+
+        registration.setStatus("REJECTED");
+        team.setStatus("REJECTED");
+        ownerPlayer.setStatus("REJECTED");
+
+        registrationRepository.save(registration);
+        teamRepository.save(team);
+        playerRepository.save(ownerPlayer);
+
+        return toTeamOwnerRegistrationDetailsResponse(registration);
+    }
+
+    // =========================================================
+    // 6. FIND REGISTRATION AND VERIFY AUCTION
+    // =========================================================
+
+    private TeamOwnerRegistration findRegistrationInAuction(
+            Long auctionId,
+            Long registrationId) {
+
+        TeamOwnerRegistration registration =
+                registrationRepository.findById(registrationId)
+                        .orElseThrow(() -> new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Team-owner registration not found"));
+
+        if (!registration.getAuction().getId().equals(auctionId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Team-owner registration not found in this auction");
+        }
+
+        return registration;
+    }
+
+    // =========================================================
+    // 7. FIND THE AUTOMATICALLY CREATED OWNER PLAYER
+    // =========================================================
+
+    private Player findOwnerPlayer(
+            Long auctionId,
+            String ownerEmail) {
+
+        return playerRepository
+                .findByAuctionIdAndEmailIgnoreCase(auctionId, ownerEmail)
+                .stream()
+                .filter(player -> "OWNER_PLAYER".equalsIgnoreCase(
+                        player.getRegistrationType()))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Owner Player #1 was not found for this registration"));
+    }
+
+    // =========================================================
+    // 8. VALIDATE REGISTRATION STATUS FILTER
+    // =========================================================
+
+    private String validateAndNormalizeStatus(String status) {
+
+        if (status == null || status.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Registration status is required");
+        }
+
+        String normalizedStatus =
+                status.trim().toUpperCase(Locale.ROOT);
+
+        if (!List.of("PENDING", "APPROVED", "REJECTED")
+                .contains(normalizedStatus)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid status. Allowed values: PENDING, APPROVED, REJECTED");
+        }
+
+        return normalizedStatus;
+    }
+
+    // =========================================================
+    // 9. VERIFY AUCTION OWNERSHIP
+    // =========================================================
+
+    private void validateCreatorOwnsAuction(
+            Long auctionId,
+            String creatorEmail) {
+
+        Auction auction = auctionRepository.findById(auctionId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Auction not found"));
+
+        if (auction.getCreator() == null
+                || !auction.getCreator().getEmail()
+                        .equalsIgnoreCase(creatorEmail)) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "You are not allowed to manage this auction");
+        }
+    }
+
+    // =========================================================
+    // 10. CONVERT ENTITY TO RESPONSE DTO
+    // =========================================================
+
+    private TeamOwnerRegistrationDetailsResponse
+            toTeamOwnerRegistrationDetailsResponse(
+                    TeamOwnerRegistration registration) {
+
+        return new TeamOwnerRegistrationDetailsResponse(
+                registration.getId(),
+                registration.getTeam().getId(),
+                registration.getOwnerName(),
+                registration.getOwnerEmail(),
+                registration.getOwnerPhone(),
+                registration.getTeam().getTeamName(),
+                registration.getTeam().getTeamShortName(),
+                registration.getStatus(),
                 registration.getRegisteredAt()
         );
     }

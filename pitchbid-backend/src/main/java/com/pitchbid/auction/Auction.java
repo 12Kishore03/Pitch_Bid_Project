@@ -146,6 +146,10 @@ public class Auction {
         }
     }
 
+    // ==========================================
+    // GETTERS
+    // ==========================================
+
     public Long getId() {
         return id;
     }
@@ -250,6 +254,40 @@ public class Auction {
         return creator;
     }
 
+    // ==========================================
+    // SETTERS FOR AUCTION UPDATE
+    // Only basic details are editable
+    // ==========================================
+
+    public void setAuctionName(String auctionName) {
+        this.auctionName = auctionName;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public void setCustomRules(String customRules) {
+        this.customRules = customRules;
+    }
+
+    // ==========================================
+    // EXISTING SETTINGS SETTERS
+    // Preserved for auction creation
+    // ==========================================
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
     public void setAllowTeamPass(boolean allowTeamPass) {
         this.allowTeamPass = allowTeamPass;
     }
@@ -276,9 +314,5 @@ public class Auction {
 
     public void setBidCancellation(String bidCancellation) {
         this.bidCancellation = bidCancellation;
-    }
-
-    public void setCustomRules(String customRules) {
-        this.customRules = customRules;
     }
 }

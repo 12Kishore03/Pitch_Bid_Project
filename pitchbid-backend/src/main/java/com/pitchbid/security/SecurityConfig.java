@@ -56,7 +56,8 @@ public class SecurityConfig {
                 // Public team-owner registration through an auction link
                 .requestMatchers(
                     HttpMethod.POST,
-                    "/api/auctions/*/team-registrations"
+                    "/api/auctions/*/team-registrations",
+                    "/api/auctions/*/player-registrations"
                 ).permitAll()
 
                 // All other endpoints require authentication

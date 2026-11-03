@@ -1,6 +1,7 @@
 
 package com.pitchbid.player;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -43,12 +44,16 @@ public class Player {
     @JoinColumn(name = "auction_id", nullable = false)
     private Auction auction;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "team_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "team_id", nullable = true)
     private Team team;
 
     @Column(name = "player_number")
     private Integer playerNumber;
+
+    // Individual base price assigned by Auction Creator
+    @Column(name = "base_price", precision = 15, scale = 2)
+    private BigDecimal basePrice;
 
     @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
@@ -132,6 +137,10 @@ public class Player {
         }
     }
 
+    // =========================================================
+    // GETTERS
+    // =========================================================
+
     public Long getId() {
         return id;
     }
@@ -146,6 +155,10 @@ public class Player {
 
     public Integer getPlayerNumber() {
         return playerNumber;
+    }
+
+    public BigDecimal getBasePrice() {
+        return basePrice;
     }
 
     public String getFullName() {
@@ -200,6 +213,10 @@ public class Player {
         return registeredAt;
     }
 
+    // =========================================================
+    // EXISTING CONTROLLED SETTERS
+    // =========================================================
+
     public void setStatus(String status) {
         this.status = status;
     }
@@ -210,5 +227,53 @@ public class Player {
 
     public void setPlayerNumber(Integer playerNumber) {
         this.playerNumber = playerNumber;
+    }
+
+    // =========================================================
+    // BASE PRICE SETTER
+    // =========================================================
+
+    public void setBasePrice(BigDecimal basePrice) {
+        this.basePrice = basePrice;
+    }
+
+    // =========================================================
+    // PLAYER PROFILE SETTERS
+    // =========================================================
+
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public void setDateOfBirth(LocalDate dateOfBirth) {
+        this.dateOfBirth = dateOfBirth;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public void setPlayerRole(String playerRole) {
+        this.playerRole = playerRole;
+    }
+
+    public void setBattingStyle(String battingStyle) {
+        this.battingStyle = battingStyle;
+    }
+
+    public void setBowlingStyle(String bowlingStyle) {
+        this.bowlingStyle = bowlingStyle;
+    }
+
+    public void setWicketkeeper(boolean wicketkeeper) {
+        this.wicketkeeper = wicketkeeper;
     }
 }

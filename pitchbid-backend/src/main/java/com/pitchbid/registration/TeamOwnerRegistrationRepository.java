@@ -23,4 +23,13 @@ public interface TeamOwnerRegistrationRepository
 
     List<TeamOwnerRegistration> findByAuctionIdAndStatus(
             Long auctionId, String status);
+    
+     List<TeamOwnerRegistration> findByAuctionIdOrderByRegisteredAtDesc(
+        Long auctionId);
+
+List<TeamOwnerRegistration> findByAuctionIdAndStatusOrderByRegisteredAtDesc(
+        Long auctionId,
+        String status);       
+
+            
 }
