@@ -13,6 +13,8 @@ import org.springframework.web.server.ResponseStatusException;
 import com.pitchbid.auction.dto.AuctionResponse;
 import com.pitchbid.auction.dto.CreateAuctionRequest;
 import com.pitchbid.auction.dto.UpdateAuctionRequest;
+import com.pitchbid.auction.dto.UpdateBidTimerRequest;
+import com.pitchbid.liveauction.AuctionSessionRepository;
 import com.pitchbid.user.User;
 import com.pitchbid.user.UserRepository;
 
@@ -21,13 +23,16 @@ public class AuctionService {
 
     private final AuctionRepository auctionRepository;
     private final UserRepository userRepository;
+    private final AuctionSessionRepository auctionSessionRepository;
 
     public AuctionService(
             AuctionRepository auctionRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            AuctionSessionRepository auctionSessionRepository) {
 
         this.auctionRepository = auctionRepository;
         this.userRepository = userRepository;
+        this.auctionSessionRepository = auctionSessionRepository;
     }
 
     // ==========================================
@@ -144,10 +149,8 @@ public class AuctionService {
             UpdateAuctionRequest request,
             String creatorEmail) {
 
-        // Find auction and verify Creator ownership
         Auction auction = findOwnedAuction(auctionId, creatorEmail);
 
-        // Allow updates only before auction starts
         if (!"UPCOMING".equals(auction.getStatus())) {
 
             throw new ResponseStatusException(
@@ -156,18 +159,12 @@ public class AuctionService {
             );
         }
 
-        // Update only permitted fields
         auction.setAuctionName(request.auctionName().trim());
-
         auction.setCategory(request.category().trim());
-
         auction.setVisibility(request.visibility().trim());
-
         auction.setDescription(request.description());
-
         auction.setCustomRules(request.customRules());
 
-        // Save updated auction
         Auction updatedAuction = auctionRepository.save(auction);
 
         return toResponse(updatedAuction);
@@ -258,7 +255,61 @@ public class AuctionService {
     }
 
     // ==========================================
-    // 9. COMMON STATUS UPDATE METHOD
+    // 9. UPDATE BID TIMER
+    // Only PAUSED auctions can be updated
+    // ==========================================
+
+    @Transactional
+    public AuctionResponse updateBidTimer(
+            Long auctionId,
+            UpdateBidTimerRequest request,
+            String creatorEmail) {
+
+        // Verify auction ownership.
+        Auction auction = findOwnedAuction(auctionId, creatorEmail);
+
+        // Timer can only be changed when auction is PAUSED.
+        if (!"PAUSED".equals(auction.getStatus())) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Bid timer can only be updated when auction is PAUSED"
+            );
+        }
+
+        // A player must not currently be under auction.
+        auctionSessionRepository.findByAuctionId(auctionId)
+                .ifPresent(session -> {
+
+                    if (!"READY".equals(session.getSessionStatus())) {
+
+                        throw new ResponseStatusException(
+                                HttpStatus.CONFLICT,
+                                "Cannot update bid timer while a player is being auctioned"
+                        );
+                    }
+                });
+
+        // Validate timer.
+        Integer bidTimer = request.bidTimer();
+
+        if (bidTimer < 5 || bidTimer > 300) {
+
+            throw new IllegalArgumentException(
+                    "Bid timer must be between 5 and 300 seconds"
+            );
+        }
+
+        // Update timer.
+        auction.setBidTimer(bidTimer);
+
+        Auction updatedAuction = auctionRepository.save(auction);
+
+        return toResponse(updatedAuction);
+    }
+
+    // ==========================================
+    // 10. COMMON STATUS UPDATE METHOD
     // ==========================================
 
     private AuctionResponse updateAuctionStatus(
@@ -286,7 +337,7 @@ public class AuctionService {
     }
 
     // ==========================================
-    // 10. FIND AUCTION AND VERIFY CREATOR OWNERSHIP
+    // 11. FIND AUCTION AND VERIFY CREATOR
     // ==========================================
 
     private Auction findOwnedAuction(
@@ -299,8 +350,10 @@ public class AuctionService {
                         "Auction not found"
                 ));
 
-        if (!auction.getCreator().getEmail()
-                .equalsIgnoreCase(creatorEmail)) {
+        if (auction.getCreator() == null
+                || auction.getCreator().getEmail() == null
+                || !auction.getCreator().getEmail()
+                        .equalsIgnoreCase(creatorEmail)) {
 
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
@@ -312,7 +365,7 @@ public class AuctionService {
     }
 
     // ==========================================
-    // 11. AUCTION VALIDATION
+    // 12. AUCTION VALIDATION
     // ==========================================
 
     private void validateAuction(CreateAuctionRequest request) {
@@ -365,43 +418,38 @@ public class AuctionService {
         Integer maxPlayers = request.maxPlayers();
         Integer totalPlayers = request.maxAuctionPlayers();
 
-        if (teams == null || teams < 2) {
+        if (teams < 2) {
 
             throw new IllegalArgumentException(
                     "At least 2 teams are required");
         }
 
-        if (minPlayers == null || minPlayers < 1
-                || maxPlayers == null || maxPlayers < minPlayers) {
+        if (minPlayers < 1 || maxPlayers < minPlayers) {
 
             throw new IllegalArgumentException(
                     "Player limits are invalid");
         }
 
-        if (totalPlayers == null
-                || totalPlayers < teams
+        if (totalPlayers < teams
                 || (long) totalPlayers < (long) teams * minPlayers) {
 
             throw new IllegalArgumentException(
                     "Total player capacity is too low for the configured teams");
         }
 
-        if (request.teamBudget() == null
-                || request.teamBudget().compareTo(BigDecimal.ZERO) <= 0) {
+        if (request.teamBudget().compareTo(BigDecimal.ZERO) <= 0) {
 
             throw new IllegalArgumentException(
                     "Team budget must be greater than zero");
         }
 
-        if (request.bidIncrement() == null
-                || request.bidIncrement().compareTo(BigDecimal.ZERO) <= 0) {
+        if (request.bidIncrement().compareTo(BigDecimal.ZERO) <= 0) {
 
             throw new IllegalArgumentException(
                     "Bid increment must be greater than zero");
         }
 
-        if (request.bidTimer() == null
-                || request.bidTimer() < 5
+        if (request.bidTimer() < 5
                 || request.bidTimer() > 300) {
 
             throw new IllegalArgumentException(
@@ -451,7 +499,7 @@ public class AuctionService {
     }
 
     // ==========================================
-    // 12. VALIDATE TEXT LENGTH
+    // 13. VALIDATE TEXT LENGTH
     // ==========================================
 
     private void validateLength(
@@ -467,7 +515,7 @@ public class AuctionService {
     }
 
     // ==========================================
-    // 13. DEFAULT TIME ZONE
+    // 14. DEFAULT TIME ZONE
     // ==========================================
 
     private String defaultTimeZone(String timeZone) {
@@ -478,7 +526,7 @@ public class AuctionService {
     }
 
     // ==========================================
-    // 14. DEFAULT TEXT VALUES
+    // 15. DEFAULT TEXT VALUES
     // ==========================================
 
     private String defaultText(String value, String defaultValue) {
@@ -489,7 +537,7 @@ public class AuctionService {
     }
 
     // ==========================================
-    // 15. CONVERT ENTITY TO RESPONSE DTO
+    // 16. CONVERT ENTITY TO RESPONSE DTO
     // ==========================================
 
     private AuctionResponse toResponse(Auction auction) {

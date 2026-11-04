@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.pitchbid.auction.dto.AuctionResponse;
 import com.pitchbid.auction.dto.CreateAuctionRequest;
 import com.pitchbid.auction.dto.UpdateAuctionRequest;
+import com.pitchbid.auction.dto.UpdateBidTimerRequest;
 
 import jakarta.validation.Valid;
 
@@ -50,7 +51,7 @@ public class AuctionController {
     }
 
     // ==========================================
-    // 2. GET ALL AUCTIONS CREATED BY CURRENT USER
+    // 2. GET MY AUCTIONS
     // GET /api/auctions/mine
     // ==========================================
 
@@ -83,9 +84,8 @@ public class AuctionController {
     }
 
     // ==========================================
-    // 4. UPDATE AUCTION BASIC DETAILS
+    // 4. UPDATE AUCTION
     // PUT /api/auctions/{auctionId}
-    // UPCOMING ONLY
     // ==========================================
 
     @PutMapping("/{auctionId}")
@@ -106,7 +106,6 @@ public class AuctionController {
     // ==========================================
     // 5. START AUCTION
     // PATCH /api/auctions/{auctionId}/start
-    // UPCOMING -> LIVE
     // ==========================================
 
     @PatchMapping("/{auctionId}/start")
@@ -125,7 +124,6 @@ public class AuctionController {
     // ==========================================
     // 6. PAUSE AUCTION
     // PATCH /api/auctions/{auctionId}/pause
-    // LIVE -> PAUSED
     // ==========================================
 
     @PatchMapping("/{auctionId}/pause")
@@ -144,7 +142,6 @@ public class AuctionController {
     // ==========================================
     // 7. RESUME AUCTION
     // PATCH /api/auctions/{auctionId}/resume
-    // PAUSED -> LIVE
     // ==========================================
 
     @PatchMapping("/{auctionId}/resume")
@@ -163,7 +160,6 @@ public class AuctionController {
     // ==========================================
     // 8. STOP AUCTION
     // PATCH /api/auctions/{auctionId}/stop
-    // LIVE / PAUSED -> COMPLETED
     // ==========================================
 
     @PatchMapping("/{auctionId}/stop")
@@ -173,6 +169,26 @@ public class AuctionController {
 
         AuctionResponse response = auctionService.stopAuction(
                 auctionId,
+                principal.getName()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    // ==========================================
+    // 9. UPDATE BID TIMER
+    // PATCH /api/auctions/{auctionId}/bid-timer
+    // ==========================================
+
+    @PatchMapping("/{auctionId}/bid-timer")
+    public ResponseEntity<AuctionResponse> updateBidTimer(
+            @PathVariable Long auctionId,
+            @Valid @RequestBody UpdateBidTimerRequest request,
+            Principal principal) {
+
+        AuctionResponse response = auctionService.updateBidTimer(
+                auctionId,
+                request,
                 principal.getName()
         );
 

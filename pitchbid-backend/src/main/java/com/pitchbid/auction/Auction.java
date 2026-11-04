@@ -287,6 +287,7 @@ public class Auction {
     public void setStatus(String status) {
         this.status = status;
     }
+    
 
     public void setAllowTeamPass(boolean allowTeamPass) {
         this.allowTeamPass = allowTeamPass;
@@ -315,4 +316,8 @@ public class Auction {
     public void setBidCancellation(String bidCancellation) {
         this.bidCancellation = bidCancellation;
     }
+
+    public void setBidTimer(Integer bidTimer) {
+    this.bidTimer = bidTimer;
+}
 }
