@@ -1,7 +1,12 @@
 
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { saveAuction } from "../utils/AuctionStroage";
+
+import { createAuction as createAuctionApi } from "../api/auctionApi";
+
+// ==========================================
+// AUCTION STEPS
+// ==========================================
 
 const steps = [
   "Basic Information",
@@ -13,34 +18,50 @@ const steps = [
   "Review & Create",
 ];
 
+// ==========================================
+// INITIAL FORM DATA
+// ==========================================
+
 const initialData = {
   auctionName: "",
   category: "",
   visibility: "Public",
   description: "",
+
   startDate: "",
   registrationDeadline: "",
   endDate: "",
   timeZone: "Asia/Kolkata",
+
   numberOfTeams: "",
   teamBudget: "",
   minPlayers: "",
   maxPlayers: "",
   teamNaming: "Owner selects",
+
   maxAuctionPlayers: "",
   playerApproval: "Manual",
+
   bidIncrement: "",
   bidTimer: "20",
+
   allowTeamPass: true,
   playerReentry: "Allow",
   bidCancellation: "Creator approval",
+
   teamRegistration: true,
   playerRegistration: true,
   registrationApproval: "Manual",
+
   customRules: "",
 };
 
+// ==========================================
+// FORM FIELD CONFIGURATION
+// ==========================================
+
 const fieldGroups = [
+  // STEP 1: BASIC INFORMATION
   [
     {
       name: "auctionName",
@@ -75,6 +96,8 @@ const fieldGroups = [
       placeholder: "Describe your cricket auction...",
     },
   ],
+
+  // STEP 2: AUCTION SCHEDULE
   [
     {
       name: "startDate",
@@ -106,6 +129,8 @@ const fieldGroups = [
       required: true,
     },
   ],
+
+  // STEP 3: TEAM CONFIGURATION
   [
     {
       name: "numberOfTeams",
@@ -143,6 +168,8 @@ const fieldGroups = [
       required: true,
     },
   ],
+
+  // STEP 4: PLAYER CONFIGURATION
   [
     {
       name: "maxAuctionPlayers",
@@ -159,6 +186,8 @@ const fieldGroups = [
       required: true,
     },
   ],
+
+  // STEP 5: BIDDING RULES
   [
     {
       name: "bidIncrement",
@@ -172,10 +201,12 @@ const fieldGroups = [
       label: "Bid Timer (seconds)",
       type: "number",
       min: 5,
-      max: 120,
+      max: 300,
       required: true,
     },
   ],
+
+  // STEP 6: REGISTRATION AND RULES
   [
     {
       name: "registrationApproval",
@@ -207,14 +238,28 @@ const fieldGroups = [
   ],
 ];
 
+// ==========================================
+// REVIEW CONFIGURATION
+// ==========================================
+
 const reviewGroups = [
   {
     title: "Basic Information",
-    keys: ["auctionName", "category", "visibility", "description"],
+    keys: [
+      "auctionName",
+      "category",
+      "visibility",
+      "description",
+    ],
   },
   {
     title: "Auction Schedule",
-    keys: ["startDate", "registrationDeadline", "endDate", "timeZone"],
+    keys: [
+      "startDate",
+      "registrationDeadline",
+      "endDate",
+      "timeZone",
+    ],
   },
   {
     title: "Teams",
@@ -228,11 +273,17 @@ const reviewGroups = [
   },
   {
     title: "Players",
-    keys: ["maxAuctionPlayers", "playerApproval"],
+    keys: [
+      "maxAuctionPlayers",
+      "playerApproval",
+    ],
   },
   {
     title: "Bidding",
-    keys: ["bidIncrement", "bidTimer"],
+    keys: [
+      "bidIncrement",
+      "bidTimer",
+    ],
   },
   {
     title: "Registration & Rules",
@@ -248,6 +299,10 @@ const reviewGroups = [
   },
 ];
 
+// ==========================================
+// HELPER FUNCTIONS
+// ==========================================
+
 function formatLabel(key) {
   return key
     .replace(/([A-Z])/g, " $1")
@@ -259,15 +314,18 @@ function formatValue(key, value) {
     return value ? "Enabled" : "Disabled";
   }
 
-  if (!value) {
+  if (value === null || value === undefined || value === "") {
     return "Not specified";
   }
 
-  if (["startDate", "registrationDeadline", "endDate"].includes(key)) {
+  if (
+    ["startDate", "registrationDeadline", "endDate"].includes(key)
+  ) {
     const date = new Date(value);
+
     return Number.isNaN(date.getTime())
       ? value
-      : date.toLocaleString();
+      : date.toLocaleString("en-IN");
   }
 
   if (key === "teamBudget" || key === "bidIncrement") {
@@ -281,32 +339,51 @@ function formatValue(key, value) {
   return value;
 }
 
-function CreateAuction() {
+// ==========================================
+// MAIN COMPONENT
+// ==========================================
 
+function CreateAuction() {
   const navigate = useNavigate();
-  
+
   const [activeStep, setActiveStep] = useState(0);
-  const [formData, setFormData] = useState({ ...initialData });
+
+  const [formData, setFormData] = useState({
+    ...initialData,
+  });
+
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
   const [createdAuction, setCreatedAuction] = useState(null);
   const [copyMessage, setCopyMessage] = useState("");
 
   const stepRef = useRef(null);
+
+  // ==========================================
+  // UPDATE FORM FIELD
+  // ==========================================
 
   const updateField = (name, value) => {
     setFormData((previous) => ({
       ...previous,
       [name]: value,
     }));
+
     setError("");
   };
+
+  // ==========================================
+  // VALIDATE CURRENT STEP
+  // ==========================================
 
   const validateStep = (step, checkNative = true) => {
     setError("");
 
-    // stepRef refers to a div, so report validity on the input.
+    // Check native HTML validation
     if (checkNative && step === activeStep && step < 6) {
-      const invalidField = stepRef.current?.querySelector(":invalid");
+      const invalidField =
+        stepRef.current?.querySelector(":invalid");
 
       if (invalidField) {
         invalidField.reportValidity();
@@ -319,6 +396,7 @@ function CreateAuction() {
     for (const field of fields) {
       const value = formData[field.name];
 
+      // Required field validation
       if (
         field.required &&
         String(value ?? "").trim() === ""
@@ -327,6 +405,7 @@ function CreateAuction() {
         return false;
       }
 
+      // Number validation
       if (field.type === "number" && value !== "") {
         const number = Number(value);
 
@@ -335,14 +414,20 @@ function CreateAuction() {
           return false;
         }
 
-        if (field.min !== undefined && number < field.min) {
+        if (
+          field.min !== undefined &&
+          number < field.min
+        ) {
           setError(
             `${field.label} must be at least ${field.min}.`
           );
           return false;
         }
 
-        if (field.max !== undefined && number > field.max) {
+        if (
+          field.max !== undefined &&
+          number > field.max
+        ) {
           setError(
             `${field.label} cannot exceed ${field.max}.`
           );
@@ -351,10 +436,12 @@ function CreateAuction() {
       }
     }
 
-    // Schedule validation
+    // AUCTION SCHEDULE VALIDATION
     if (step === 1) {
       const start = new Date(formData.startDate);
-      const deadline = new Date(formData.registrationDeadline);
+      const deadline = new Date(
+        formData.registrationDeadline
+      );
 
       if (
         Number.isNaN(start.getTime()) ||
@@ -374,7 +461,10 @@ function CreateAuction() {
       if (formData.endDate) {
         const end = new Date(formData.endDate);
 
-        if (Number.isNaN(end.getTime()) || end <= start) {
+        if (
+          Number.isNaN(end.getTime()) ||
+          end <= start
+        ) {
           setError(
             "Planned end date must be after the auction starts."
           );
@@ -383,17 +473,37 @@ function CreateAuction() {
       }
     }
 
-    // Team validation
-    if (step === 2) {
-      if (Number(formData.minPlayers) > Number(formData.maxPlayers)) {
-        setError(
-          "Minimum players cannot exceed maximum players."
-        );
-        return false;
-      }
-    }
+    // TEAM CONFIGURATION VALIDATION
+    // TEAM CONFIGURATION VALIDATION
+if (step === 2) {
+  const minimum = Number(formData.minPlayers);
+  const maximum = Number(formData.maxPlayers);
 
-    // Registration configuration
+  if (minimum > maximum) {
+    setError(
+      "Minimum players cannot exceed maximum players."
+    );
+    return false;
+  }
+}
+
+// PLAYER CONFIGURATION VALIDATION
+if (step === 3) {
+  const teams = Number(formData.numberOfTeams);
+  const minimum = Number(formData.minPlayers);
+  const total = Number(formData.maxAuctionPlayers);
+
+  const requiredPlayers = teams * minimum;
+
+  if (total < requiredPlayers) {
+    setError(
+      `Maximum auction players must be at least ${requiredPlayers} to satisfy the minimum player requirement for all teams.`
+    );
+    return false;
+  }
+}
+
+    // REGISTRATION VALIDATION
     if (step === 5) {
       if (
         !formData.teamRegistration &&
@@ -409,8 +519,16 @@ function CreateAuction() {
     return true;
   };
 
+  // ==========================================
+  // VALIDATE ALL STEPS
+  // ==========================================
+
   const validateAllSteps = () => {
-    for (let step = 0; step < fieldGroups.length; step += 1) {
+    for (
+      let step = 0;
+      step < fieldGroups.length;
+      step += 1
+    ) {
       if (!validateStep(step, false)) {
         setActiveStep(step);
         return false;
@@ -419,6 +537,10 @@ function CreateAuction() {
 
     return true;
   };
+
+  // ==========================================
+  // NAVIGATION BETWEEN STEPS
+  // ==========================================
 
   const nextStep = () => {
     if (!validateStep(activeStep)) {
@@ -432,7 +554,10 @@ function CreateAuction() {
 
   const previousStep = () => {
     setError("");
-    setActiveStep((previous) => Math.max(previous - 1, 0));
+
+    setActiveStep((previous) =>
+      Math.max(previous - 1, 0)
+    );
   };
 
   const goToStep = (index) => {
@@ -442,48 +567,148 @@ function CreateAuction() {
     }
   };
 
-  const createAuction = () => {
-  if (!validateAllSteps()) {
-    return;
-  }
+  // ==========================================
+  // CONVERT FORM DATA TO BACKEND REQUEST
+  // ==========================================
 
-  const auctionId = `PB-${Date.now()}`;
-  const baseUrl = window.location.origin;
+  const buildAuctionRequest = () => {
+    return {
+      auctionName: formData.auctionName.trim(),
 
-  const auction = {
-    ...formData,
-    id: auctionId,
-    status: "Upcoming",
-    createdAt: new Date().toISOString(),
-    registrationLinks: {
-      player: `${baseUrl}/join-auction/${auctionId}?role=player`,
-      owner: `${baseUrl}/join-auction/${auctionId}?role=owner`,
-    },
+      category: formData.category,
+
+      visibility: formData.visibility
+        .toUpperCase()
+        .replace(/\s+/g, "_"),
+
+      description: formData.description.trim(),
+
+      startDate: formData.startDate,
+
+      registrationDeadline: formData.registrationDeadline,
+
+      endDate: formData.endDate || null,
+
+      timeZone: formData.timeZone,
+
+      numberOfTeams: Number(formData.numberOfTeams),
+
+      teamBudget: Number(formData.teamBudget),
+
+      minPlayers: Number(formData.minPlayers),
+
+      maxPlayers: Number(formData.maxPlayers),
+
+      maxAuctionPlayers: Number(
+        formData.maxAuctionPlayers
+      ),
+
+      bidIncrement: Number(formData.bidIncrement),
+
+      bidTimer: Number(formData.bidTimer),
+
+      allowTeamPass: formData.allowTeamPass,
+
+      playerReentry: formData.playerReentry === "Allow",
+
+      teamRegistration: formData.teamRegistration,
+
+      playerRegistration: formData.playerRegistration,
+
+      playerApproval: formData.playerApproval,
+
+      registrationApproval: formData.registrationApproval,
+
+      bidCancellation: formData.bidCancellation,
+
+      customRules: formData.customRules.trim(),
+    };
   };
 
-  try {
-    // Save the auction before navigating to its management page.
-    saveAuction(auction);
+  // ==========================================
+  // CREATE AUCTION - BACKEND API
+  // ==========================================
 
-    console.log("Auction saved successfully:", auction);
+  const createAuction = async () => {
+    if (submitting) {
+      return;
+    }
 
-    // Keep the creator on the exact auction they just created.
-    navigate(`/auction-management/${auctionId}`, {
-      replace: true,
-    });
-  } catch (error) {
-    console.error("Failed to save auction:", error);
+    if (!validateAllSteps()) {
+      return;
+    }
 
-    setError(
-      "Unable to save this auction in your browser. Check browser storage settings and try again."
-    );
-  }
-};
+    try {
+      setSubmitting(true);
+      setError("");
+
+      // Prepare backend request
+      const auctionData = buildAuctionRequest();
+
+      console.log("Auction request:", auctionData);
+
+      // Call Spring Boot API
+      const response = await createAuctionApi(auctionData);
+
+      console.log("Auction created successfully:", response);
+
+      // Validate returned auction ID
+      if (!response || response.id === null || response.id === undefined) {
+        throw new Error(
+          "Auction was created, but the server did not return an auction ID."
+        );
+      }
+
+      // Use the real database-generated ID
+      const baseUrl = window.location.origin;
+
+      const auction = {
+        ...response,
+
+        // Preserve registration settings from the submitted form.
+        // These are not included in the current AuctionResponse DTO.
+        teamRegistration: auctionData.teamRegistration,
+
+        playerRegistration: auctionData.playerRegistration,
+
+        registrationLinks: {
+          player: `${baseUrl}/join-auction/${response.id}?role=player`,
+
+          owner: `${baseUrl}/join-auction/${response.id}?role=owner`,
+        },
+      };
+
+      // Display success screen
+      setCreatedAuction(auction);
+
+    } catch (err) {
+      console.error("Auction creation failed:", err);
+
+      const backendMessage =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message;
+
+      setError(
+        backendMessage ||
+        "Unable to create auction. Please try again."
+      );
+
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ==========================================
+  // COPY REGISTRATION LINK
+  // ==========================================
 
   const copyLink = async (link, label) => {
     try {
       await navigator.clipboard.writeText(link);
+
       setCopyMessage(`${label} link copied!`);
+
     } catch {
       setCopyMessage(
         "Unable to copy automatically. Please select and copy the link."
@@ -491,63 +716,100 @@ function CreateAuction() {
     }
   };
 
+  // ==========================================
+  // RENDER FORM FIELDS
+  // ==========================================
+
   const renderField = (field) => {
     const common = {
       id: field.name,
       name: field.name,
+
       required: Boolean(field.required),
+
       value: formData[field.name],
+
       onChange: (event) =>
         updateField(field.name, event.target.value),
+
       min: field.min,
       max: field.max,
+
       placeholder: field.placeholder || "",
+
       className:
         "w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-800 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100",
     };
 
     return (
       <div key={field.name} className="space-y-2">
+
         <label
           htmlFor={field.name}
           className="block text-sm font-semibold text-gray-700"
         >
           {field.label}
+
           {field.required && (
             <span className="ml-1 text-red-500">*</span>
           )}
         </label>
 
         {field.type === "textarea" ? (
-          <textarea {...common} rows={4} />
+
+          <textarea
+            {...common}
+            rows={4}
+            maxLength={2000}
+          />
+
         ) : field.type === "select" ? (
+
           <select {...common}>
-            <option value="">Select {field.label}</option>
+
+            <option value="">
+              Select {field.label}
+            </option>
+
             {field.options.map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
             ))}
+
           </select>
+
         ) : (
+
           <input
             {...common}
             type={field.type || "text"}
             step={field.type === "number" ? "1" : undefined}
           />
+
         )}
+
       </div>
     );
   };
 
-  // Success screen with two registration links
+  // ==========================================
+  // SUCCESS SCREEN
+  // ==========================================
+
   if (createdAuction) {
-    const { player, owner } = createdAuction.registrationLinks;
+    const player = createdAuction.registrationLinks.player;
+
+    const owner = createdAuction.registrationLinks.owner;
 
     return (
       <div className="min-h-screen bg-blue-50 px-4 py-10">
+
         <div className="mx-auto max-w-3xl">
+
           <div className="rounded-2xl bg-white p-6 shadow-lg sm:p-10">
+
+            {/* Success icon */}
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl text-green-700">
               ✓
             </div>
@@ -557,12 +819,18 @@ function CreateAuction() {
             </h1>
 
             <p className="mt-3 text-center text-gray-600">
-              Share the appropriate registration link with players
-              and team owners.
+              Your auction has been saved successfully.
+              Share the appropriate registration links with
+              players and team owners.
             </p>
 
+            {/* Auction information */}
             <div className="mt-6 rounded-xl bg-blue-50 p-4">
-              <p className="text-sm text-gray-500">Auction Name</p>
+
+              <p className="text-sm text-gray-500">
+                Auction Name
+              </p>
+
               <h2 className="mt-1 text-lg font-bold text-blue-950">
                 {createdAuction.auctionName}
               </h2>
@@ -570,12 +838,20 @@ function CreateAuction() {
               <p className="mt-2 text-sm text-gray-600">
                 Auction ID: {createdAuction.id}
               </p>
+
+              <p className="mt-1 text-sm text-gray-600">
+                Status: {createdAuction.status}
+              </p>
+
             </div>
 
-            {/* Player link */}
-            {createdAuction.playerRegistration && createdAuction.registrationLinks?.player && (
+            {/* Player registration link */}
+            {createdAuction.playerRegistration && (
+
               <div className="mt-6 rounded-xl border border-blue-200 p-5">
+
                 <div className="flex items-center gap-3">
+
                   <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-100 text-xl">
                     🏏
                   </div>
@@ -584,10 +860,12 @@ function CreateAuction() {
                     <h3 className="font-bold text-blue-950">
                       Player Registration Link
                     </h3>
+
                     <p className="text-sm text-gray-500">
                       For players who want to participate.
                     </p>
                   </div>
+
                 </div>
 
                 <input
@@ -609,13 +887,17 @@ function CreateAuction() {
                   Players will enter their personal details and
                   their own base price during registration.
                 </p>
+
               </div>
             )}
 
-            {/* Owner link */}
-            {createdAuction.teamRegistration && createdAuction.registrationLinks?.owner && (
+            {/* Team owner registration link */}
+            {createdAuction.teamRegistration && (
+
               <div className="mt-5 rounded-xl border border-indigo-200 p-5">
+
                 <div className="flex items-center gap-3">
+
                   <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-indigo-100 text-xl">
                     👥
                   </div>
@@ -624,10 +906,12 @@ function CreateAuction() {
                     <h3 className="font-bold text-blue-950">
                       Team Owner Registration Link
                     </h3>
+
                     <p className="text-sm text-gray-500">
                       For people who want to register and manage a team.
                     </p>
                   </div>
+
                 </div>
 
                 <input
@@ -646,24 +930,47 @@ function CreateAuction() {
                 </button>
 
                 <p className="mt-2 text-xs text-gray-500">
-                  The registered owner will automatically become
-                  the first player of their own team and won't
-                  need separate player registration.
+                  The registered owner automatically becomes
+                  the first player of their own team and does
+                  not need separate player registration.
                 </p>
+
               </div>
             )}
 
+            {/* Copy status */}
             {copyMessage && (
-              <p role="status" className="mt-4 text-center text-sm text-green-700">
+              <p
+                role="status"
+                className="mt-4 text-center text-sm text-green-700"
+              >
                 {copyMessage}
               </p>
             )}
 
-            <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-              <strong>Frontend demo:</strong> These links are
-              generated for display and copying. Registration
-              pages and server-side role validation still need
-              to be implemented.
+            {/* Success actions */}
+            <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+              <button
+                type="button"
+                onClick={() => navigate("/dashboard")}
+                className="rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white transition hover:bg-blue-800"
+              >
+                Go to Dashboard
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    `/auction-management/${createdAuction.id}`
+                  )
+                }
+                className="rounded-lg border border-blue-700 px-6 py-3 font-semibold text-blue-700 transition hover:bg-blue-50"
+              >
+                Manage Auction
+              </button>
+
             </div>
 
             <button
@@ -675,25 +982,39 @@ function CreateAuction() {
                 setCopyMessage("");
                 setCreatedAuction(null);
               }}
-              className="mt-6 w-full rounded-lg border border-gray-300 px-6 py-3 font-semibold text-gray-700 transition hover:bg-gray-50"
+              className="mt-4 w-full rounded-lg border border-gray-300 px-6 py-3 font-semibold text-gray-700 transition hover:bg-gray-50"
             >
               Create Another Auction
             </button>
+
           </div>
+
         </div>
+
       </div>
     );
   }
+
+  // ==========================================
+  // PROGRESS
+  // ==========================================
 
   const progress = Math.round(
     ((activeStep + 1) / steps.length) * 100
   );
 
+  // ==========================================
+  // MAIN FORM UI
+  // ==========================================
+
   return (
     <div className="min-h-screen bg-blue-50 px-4 py-10 sm:px-6">
+
       <div className="mx-auto max-w-4xl">
+
         {/* Heading */}
         <div className="mb-8">
+
           <p className="font-semibold uppercase tracking-wider text-blue-700">
             PitchBid
           </p>
@@ -706,11 +1027,14 @@ function CreateAuction() {
             Configure your cricket auction, teams, players and
             bidding rules.
           </p>
+
         </div>
 
         {/* Progress */}
         <div className="mb-6 rounded-xl bg-white p-4 shadow-sm sm:p-6">
+
           <div className="mb-3 flex items-center justify-between gap-2">
+
             <span className="text-sm font-semibold text-blue-800">
               Step {activeStep + 1} of {steps.length}
             </span>
@@ -718,17 +1042,22 @@ function CreateAuction() {
             <span className="text-sm text-gray-500">
               {progress}% complete
             </span>
+
           </div>
 
           <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+
             <div
               className="h-full rounded-full bg-blue-700 transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
+
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+
             {steps.map((step, index) => (
+
               <button
                 key={step}
                 type="button"
@@ -742,18 +1071,26 @@ function CreateAuction() {
                     : "cursor-not-allowed bg-gray-50 text-gray-400"
                 }`}
               >
+
                 <span className="mb-1 block">
                   {index < activeStep ? "✓" : `0${index + 1}`}
                 </span>
+
                 {step}
+
               </button>
+
             ))}
+
           </div>
+
         </div>
 
         {/* Step form */}
         <div className="rounded-2xl bg-white p-5 shadow-lg sm:p-8">
+
           <div className="mb-6">
+
             <h2 className="text-xl font-bold text-blue-950">
               {steps[activeStep]}
             </h2>
@@ -763,28 +1100,38 @@ function CreateAuction() {
                 ? "Review your configuration before creating the auction."
                 : "Fill in the details below to continue."}
             </p>
+
           </div>
 
           {activeStep < 6 ? (
+
             <div
               ref={stepRef}
               className="grid grid-cols-1 gap-5 sm:grid-cols-2"
             >
+
               {fieldGroups[activeStep].map(renderField)}
 
               {/* Bidding information */}
               {activeStep === 4 && (
+
                 <div className="rounded-lg bg-blue-50 p-4 text-sm text-blue-900 sm:col-span-2">
+
                   The timer resets to the full configured duration
                   after every valid bid. A separate bid extension
                   is not used.
+
                 </div>
+
               )}
 
               {/* Registration toggles */}
               {activeStep === 5 && (
+
                 <div className="space-y-4 sm:col-span-2">
+
                   <label className="flex items-center gap-3 text-sm text-gray-700">
+
                     <input
                       type="checkbox"
                       checked={formData.teamRegistration}
@@ -796,10 +1143,13 @@ function CreateAuction() {
                       }
                       className="h-4 w-4 accent-blue-700"
                     />
+
                     Allow Team Owner registration
+
                   </label>
 
                   <label className="flex items-center gap-3 text-sm text-gray-700">
+
                     <input
                       type="checkbox"
                       checked={formData.playerRegistration}
@@ -811,10 +1161,13 @@ function CreateAuction() {
                       }
                       className="h-4 w-4 accent-blue-700"
                     />
+
                     Allow Player registration
+
                   </label>
 
                   <label className="flex items-center gap-3 text-sm text-gray-700">
+
                     <input
                       type="checkbox"
                       checked={formData.allowTeamPass}
@@ -826,23 +1179,36 @@ function CreateAuction() {
                       }
                       className="h-4 w-4 accent-blue-700"
                     />
+
                     Allow teams to pass on a player
+
                   </label>
+
                 </div>
+
               )}
+
             </div>
+
           ) : (
-            /* Review screen */
+
+            /* REVIEW SCREEN */
             <div className="space-y-6">
+
               {reviewGroups.map((group) => (
+
                 <section key={group.title}>
+
                   <h3 className="mb-3 border-b border-gray-100 pb-2 font-semibold text-blue-800">
                     {group.title}
                   </h3>
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
                     {group.keys.map((key) => (
+
                       <div key={key}>
+
                         <p className="text-xs text-gray-500">
                           {formatLabel(key)}
                         </p>
@@ -850,36 +1216,47 @@ function CreateAuction() {
                         <p className="mt-1 break-words text-sm font-medium text-gray-900">
                           {formatValue(key, formData[key])}
                         </p>
+
                       </div>
+
                     ))}
+
                   </div>
+
                 </section>
+
               ))}
+
             </div>
+
           )}
 
-          {/* Validation error */}
+          {/* Validation / API error */}
           {error && (
+
             <p
               role="alert"
-              className="mt-5 rounded-lg bg-red-50 p-3 text-sm text-red-700"
+              className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
             >
               {error}
             </p>
+
           )}
 
           {/* Navigation buttons */}
           <div className="mt-8 flex flex-col-reverse justify-between gap-3 border-t border-gray-100 pt-6 sm:flex-row">
+
             <button
               type="button"
               onClick={previousStep}
-              disabled={activeStep === 0}
+              disabled={activeStep === 0 || submitting}
               className="rounded-lg border border-gray-300 px-6 py-3 font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Previous
             </button>
 
             {activeStep < 6 ? (
+
               <button
                 type="button"
                 onClick={nextStep}
@@ -887,18 +1264,28 @@ function CreateAuction() {
               >
                 Continue →
               </button>
+
             ) : (
+
               <button
                 type="button"
                 onClick={createAuction}
-                className="rounded-lg bg-blue-700 px-8 py-3 font-semibold text-white transition hover:bg-blue-800"
+                disabled={submitting}
+                className="rounded-lg bg-blue-700 px-8 py-3 font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Create Auction
+                {submitting
+                  ? "Creating Auction..."
+                  : "Create Auction"}
               </button>
+
             )}
+
           </div>
+
         </div>
+
       </div>
+
     </div>
   );
 }

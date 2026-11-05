@@ -1,4 +1,3 @@
-
 import { Routes, Route } from "react-router-dom";
 
 import Home from "../pages/Home";
@@ -8,46 +7,24 @@ import Dashboard from "../pages/dashboard";
 
 import ProtectedRoutes from "./ProtectedRoutes";
 import CreateAuction from "../pages/createAuction";
-import PlayerRegistration from "../pages/PlayerRegistration";
-import TeamOwnerRegistration from "../pages/teamOwnerRegistration";
 import JoinAuction from "../pages/joinAuction";
 import AuctionDetails from "../pages/auctionDetails";
 import AuctionManagement from "../pages/auctionManagement";
-import EditAuction from "../pages/editAcution";
 import PlayersRegistrationCreatorManage from "../pages/PlayersRegistrationCreatorManage";
 import TeamOwnerManagement from "../pages/teamOwnerManagement";
 import LiveAuction from "../pages/LiveAuction";
-
+import TeamManagement from "../pages/TeamManagement";
+import PlayerManagement from "../pages/PlayerManagement";
 
 function AppRoutes() {
-
   return (
     <Routes>
+      {/* PUBLIC ROUTES */}
+      <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
-      {/* =========================
-          PUBLIC ROUTES
-      ========================== */}
-
-      <Route
-        path="/"
-        element={<Home />}
-      />
-
-      <Route
-        path="/login"
-        element={<Login />}
-      />
-
-      <Route
-        path="/register"
-        element={<Register />}
-      />
-
-
-      {/* =========================
-          PROTECTED ROUTES
-      ========================== */}
-
+      {/* PROTECTED ROUTES */}
       <Route
         path="/dashboard"
         element={
@@ -58,83 +35,82 @@ function AppRoutes() {
       />
 
       <Route
-  path="/create-auction"
-  element={
-    <ProtectedRoutes>
-      <CreateAuction />
-    </ProtectedRoutes>
-  }/>
+        path="/create-auction"
+        element={
+          <ProtectedRoutes>
+            <CreateAuction />
+          </ProtectedRoutes>
+        }
+      />
 
-  {/* <Route
-  path="/join-auction/:auctionId"
-  element={<PlayerRegistration />}
-/> */}
+      <Route path="/join-auction/:auctionId" element={<JoinAuction />} />
 
- <Route
-  path="/join-auction/:auctionId"
-  element={<JoinAuction />}
-/>
+      <Route
+        path="/auction/:auctionId"
+        element={
+          <ProtectedRoutes>
+            <AuctionDetails />
+          </ProtectedRoutes>
+        }
+      />
 
-<Route
-  path="/auction/:auctionId"
-  element={
-    <ProtectedRoutes>
-      <AuctionDetails />
-    </ProtectedRoutes>
-  }
-/>
+      <Route
+        path="/auction-management/:auctionId"
+        element={
+          <ProtectedRoutes>
+            <AuctionManagement />
+          </ProtectedRoutes>
+        }
+      />
 
+      {/* Player registration approval/rejection page */}
+      <Route
+        path="/auction-management/:auctionId/player-registrations"
+        element={
+          <ProtectedRoutes>
+            <PlayersRegistrationCreatorManage />
+          </ProtectedRoutes>
+        }
+      />
 
-<Route
-  path="/edit-auction/:auctionId"
-  element={
-    <ProtectedRoutes>
-      <EditAuction />
-    </ProtectedRoutes>
-  }
-/>
+      {/* Approved player management page */}
+      <Route
+        path="/auction-management/:auctionId/players"
+        element={
+          <ProtectedRoutes>
+            <PlayerManagement />
+          </ProtectedRoutes>
+        }
+      />
 
-<Route
-  path="/auction-management/:auctionId"
-  element={
-    <ProtectedRoutes>
-      <AuctionManagement />
-    </ProtectedRoutes>
-  }
-/>
+      <Route
+        path="/auction-management/:auctionId/owners"
+        element={
+          <ProtectedRoutes>
+            <TeamOwnerManagement />
+          </ProtectedRoutes>
+        }
+      />
 
+      <Route
+        path="/auction-management/:auctionId/teams"
+        element={
+          <ProtectedRoutes>
+            <TeamManagement />
+          </ProtectedRoutes>
+        }
+      />
 
-<Route
-  path="/auction-management/:auctionId/players"
-  element={
-    <ProtectedRoutes>
-      <PlayersRegistrationCreatorManage />
-    </ProtectedRoutes>
-  }
-/>
-
-<Route
-  path="/auction-management/:auctionId/owners"
-  element={
-    <ProtectedRoutes>
-      <TeamOwnerManagement />
-    </ProtectedRoutes>
-  }
-/>
-
-<Route
-  path="/live-auction/:auctionId"
-  element={
-  <ProtectedRoutes>
-       <LiveAuction /> 
-  </ProtectedRoutes>
-}
-/>
-
+      <Route
+        path="/live-auction/:auctionId"
+        element={
+          <ProtectedRoutes>
+            <LiveAuction />
+          </ProtectedRoutes>
+        }
+      />
     </Routes>
   );
 }
 
-
 export default AppRoutes;
-

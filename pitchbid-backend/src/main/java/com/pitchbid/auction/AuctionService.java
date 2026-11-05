@@ -560,7 +560,11 @@ public class AuctionService {
                 auction.getBidIncrement(),
                 auction.getBidTimer(),
                 auction.getStatus(),
-                auction.getCreator().getEmail()
+                auction.getCreator() != null
+                        ? auction.getCreator().getEmail()
+                        : null,
+                auction.isTeamRegistration(),
+                auction.isPlayerRegistration()
         );
     }
 }

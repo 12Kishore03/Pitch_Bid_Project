@@ -1,4 +1,6 @@
 
+
+
 package com.pitchbid.auction.dto;
 
 import java.math.BigDecimal;
@@ -22,5 +24,9 @@ public record AuctionResponse(
         BigDecimal bidIncrement,
         Integer bidTimer,
         String status,
-        String creatorEmail
+        String creatorEmail,
+
+        // Registration settings
+        Boolean teamRegistration,
+        Boolean playerRegistration
 ) {}

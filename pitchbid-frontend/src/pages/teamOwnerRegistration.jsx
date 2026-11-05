@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { saveOwnerRegistration, getOwnerRegistrationsByAuction } from "../utils/OwnerRegistrationStorage";
-import { getRegistrationsByAuction } from "../utils/RegistrationStorage";
+import { registerTeamOwner } from "../api/registrationApi";
 
 const initialData = {
   // Owner personal details
@@ -18,7 +17,6 @@ const initialData = {
   teamName: "",
   teamShortName: "",
   teamCity: "",
-  teamLogo: null,
   teamDescription: "",
 
   // Owner as Player #1
@@ -30,6 +28,14 @@ const initialData = {
   // Confirmation
   termsAccepted: false,
 };
+
+function getTodayLocalDate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 function TeamOwnerRegistration() {
   const { auctionId } = useParams();
@@ -43,6 +49,7 @@ function TeamOwnerRegistration() {
 
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const updateField = (name, value) => {
     setFormData((previous) => ({
@@ -53,57 +60,34 @@ function TeamOwnerRegistration() {
     setError("");
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-
     setError("");
 
-    // Make sure this is an owner registration link
     if (role !== "owner") {
-      setError(
-        "This link is not a valid team owner registration link."
-      );
+      setError("This link is not a valid team owner registration link.");
       return;
     }
 
-    // -------------------------
-    // Personal Information
-    // -------------------------
+    if (!/^\d+$/.test(String(auctionId || ""))) {
+      setError("Invalid auction link. Please check the auction ID.");
+      return;
+    }
 
+    // Personal information validation
     if (!formData.fullName.trim()) {
       setError("Please enter your full name.");
       return;
     }
 
-    if (!formData.email.trim()) {
+    const normalizedEmail = formData.email.trim().toLowerCase();
+    if (!normalizedEmail) {
       setError("Please enter your email address.");
       return;
     }
 
-    // Prevent a person registered as an individual player from registering
-    // as a team owner in this same auction, and prevent duplicate owners.
-    const normalizedEmail = formData.email.trim().toLowerCase();
-    const existingPlayers = getRegistrationsByAuction(auctionId);
-    const existingOwners = getOwnerRegistrationsByAuction(auctionId);
-
-    const alreadyRegisteredAsPlayer = existingPlayers.some(
-      (player) => String(player.email || "").trim().toLowerCase() === normalizedEmail
-    );
-
-    if (alreadyRegisteredAsPlayer) {
-      setError(
-        "This email is already registered as an individual player in this auction. A person cannot register as both an individual player and a team owner in the same auction."
-      );
-      return;
-    }
-
-    const alreadyRegisteredAsOwner = existingOwners.some(
-      (registration) =>
-        String(registration.owner?.email || "").trim().toLowerCase() === normalizedEmail
-    );
-
-    if (alreadyRegisteredAsOwner) {
-      setError("This email is already registered as a team owner in this auction.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setError("Please enter a valid email address.");
       return;
     }
 
@@ -117,6 +101,11 @@ function TeamOwnerRegistration() {
       return;
     }
 
+    if (formData.dateOfBirth >= getTodayLocalDate()) {
+      setError("Date of birth must be before today.");
+      return;
+    }
+
     if (!formData.gender) {
       setError("Please select your gender.");
       return;
@@ -127,10 +116,7 @@ function TeamOwnerRegistration() {
       return;
     }
 
-    // -------------------------
-    // Team Information
-    // -------------------------
-
+    // Team information validation
     if (!formData.teamName.trim()) {
       setError("Please enter your team name.");
       return;
@@ -142,9 +128,7 @@ function TeamOwnerRegistration() {
     }
 
     if (formData.teamShortName.trim().length > 5) {
-      setError(
-        "Team short name should not contain more than 5 characters."
-      );
+      setError("Team short name should not contain more than 5 characters.");
       return;
     }
 
@@ -153,10 +137,7 @@ function TeamOwnerRegistration() {
       return;
     }
 
-    // -------------------------
-    // Owner as Player #1
-    // -------------------------
-
+    // Owner is automatically created as Player #1
     if (!formData.playerRole) {
       setError("Please select your player role.");
       return;
@@ -167,71 +148,56 @@ function TeamOwnerRegistration() {
       return;
     }
 
-    if (
-      formData.playerRole !== "Batsman" &&
-      !formData.bowlingStyle
-    ) {
-      setError("Please select your bowling style.");
-      return;
-    }
-
-    // -------------------------
-    // Terms
-    // -------------------------
+    // The backend requires a non-blank bowlingStyle for every owner player.
+    const bowlingStyle = formData.bowlingStyle || "Not a Bowler";
 
     if (!formData.termsAccepted) {
-      setError(
-        "Please accept the auction terms and conditions."
-      );
+      setError("Please accept the auction terms and conditions.");
       return;
     }
 
-    // -------------------------
-    // Registration Object
-    // -------------------------
-
-    const ownerRegistration = {
-      auctionId,
-
-      owner: {
-        fullName: formData.fullName,
-        email: formData.email,
-        phone: formData.phone,
-        dateOfBirth: formData.dateOfBirth,
-        gender: formData.gender,
-        city: formData.city,
-      },
-
-      team: {
-        teamName: formData.teamName,
-        teamShortName:
-          formData.teamShortName.toUpperCase(),
-        teamCity: formData.teamCity,
-        teamLogo: formData.teamLogo,
-        teamDescription: formData.teamDescription,
-      },
-
-      ownerAsPlayer: {
-        playerNumber: 1,
-        playerRole: formData.playerRole,
-        battingStyle: formData.battingStyle,
-        bowlingStyle: formData.bowlingStyle,
-        wicketkeeper: formData.wicketkeeper,
-        status: "Automatically Registered",
-      },
-
-      status: "Pending Approval",
-      registeredAt: new Date().toISOString(),
+    // This endpoint accepts JSON fields. Team logo upload is not supported
+    // by the current backend registration DTO/service.
+    const ownerData = {
+      fullName: formData.fullName.trim(),
+      email: normalizedEmail,
+      phone: formData.phone.trim(),
+      dateOfBirth: formData.dateOfBirth,
+      gender: formData.gender,
+      city: formData.city.trim(),
+      teamName: formData.teamName.trim(),
+      teamShortName: formData.teamShortName.trim().toUpperCase(),
+      teamCity: formData.teamCity.trim(),
+      teamDescription: formData.teamDescription.trim(),
+      playerRole: formData.playerRole,
+      battingStyle: formData.battingStyle,
+      bowlingStyle,
+      wicketkeeper: formData.wicketkeeper === "Yes",
     };
 
     try {
-      saveOwnerRegistration(ownerRegistration);
+      setIsSubmitting(true);
+      const response = await registerTeamOwner(auctionId, ownerData);
+      console.log("Team owner registration successful:", response);
       setSubmitted(true);
-    } catch (saveError) {
-      console.error("Failed to save team owner registration:", saveError);
-      setError(
-        saveError.message || "Unable to save your team registration. Please try again."
+    } catch (submitError) {
+      console.error("Team owner registration failed:", submitError);
+      console.error(
+        "Backend response:",
+        JSON.stringify(submitError.response?.data, null, 2)
       );
+
+      const backendMessage =
+        submitError.response?.data?.message ||
+        submitError.response?.data?.detail ||
+        submitError.response?.data?.error ||
+        (submitError.response?.status === 409
+          ? "This owner or team may already be registered, or the auction has reached its limit."
+          : "Unable to submit team registration. Please try again.");
+
+      setError(backendMessage);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -456,6 +422,7 @@ function TeamOwnerRegistration() {
                     id="fullName"
                     type="text"
                     value={formData.fullName}
+                    required
                     onChange={(event) =>
                       updateField(
                         "fullName",
@@ -485,6 +452,7 @@ function TeamOwnerRegistration() {
                     id="email"
                     type="email"
                     value={formData.email}
+                    required
                     onChange={(event) =>
                       updateField(
                         "email",
@@ -514,6 +482,7 @@ function TeamOwnerRegistration() {
                     id="phone"
                     type="tel"
                     value={formData.phone}
+                    required
                     onChange={(event) =>
                       updateField(
                         "phone",
@@ -543,6 +512,8 @@ function TeamOwnerRegistration() {
                     id="dateOfBirth"
                     type="date"
                     value={formData.dateOfBirth}
+                    max={getTodayLocalDate()}
+                    required
                     onChange={(event) =>
                       updateField(
                         "dateOfBirth",
@@ -570,6 +541,7 @@ function TeamOwnerRegistration() {
                   <select
                     id="gender"
                     value={formData.gender}
+                    required
                     onChange={(event) =>
                       updateField(
                         "gender",
@@ -616,6 +588,7 @@ function TeamOwnerRegistration() {
                     id="city"
                     type="text"
                     value={formData.city}
+                    required
                     onChange={(event) =>
                       updateField(
                         "city",
@@ -666,6 +639,7 @@ function TeamOwnerRegistration() {
                     id="teamName"
                     type="text"
                     value={formData.teamName}
+                    required
                     onChange={(event) =>
                       updateField(
                         "teamName",
@@ -696,6 +670,7 @@ function TeamOwnerRegistration() {
                     type="text"
                     maxLength="5"
                     value={formData.teamShortName}
+                    required
                     onChange={(event) =>
                       updateField(
                         "teamShortName",
@@ -729,6 +704,7 @@ function TeamOwnerRegistration() {
                     id="teamCity"
                     type="text"
                     value={formData.teamCity}
+                    required
                     onChange={(event) =>
                       updateField(
                         "teamCity",
@@ -738,35 +714,6 @@ function TeamOwnerRegistration() {
                     placeholder="e.g. Chennai"
                     className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
                   />
-
-                </div>
-
-                {/* Team Logo */}
-                <div className="sm:col-span-2">
-
-                  <label
-                    htmlFor="teamLogo"
-                    className="block text-sm font-semibold text-gray-700"
-                  >
-                    Team Logo
-                  </label>
-
-                  <input
-                    id="teamLogo"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={(event) =>
-                      updateField(
-                        "teamLogo",
-                        event.target.files?.[0] || null
-                      )
-                    }
-                    className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm"
-                  />
-
-                  <p className="mt-2 text-xs text-gray-500">
-                    PNG, JPG or WebP recommended.
-                  </p>
 
                 </div>
 
@@ -838,6 +785,7 @@ function TeamOwnerRegistration() {
                   <select
                     id="playerRole"
                     value={formData.playerRole}
+                    required
                     onChange={(event) =>
                       updateField(
                         "playerRole",
@@ -887,6 +835,7 @@ function TeamOwnerRegistration() {
                   <select
                     id="battingStyle"
                     value={formData.battingStyle}
+                    required
                     onChange={(event) =>
                       updateField(
                         "battingStyle",
@@ -921,16 +870,13 @@ function TeamOwnerRegistration() {
                   >
                     Bowling Style
 
-                    {formData.playerRole !== "Batsman" && (
-                      <span className="ml-1 text-red-500">
-                        *
-                      </span>
-                    )}
+                    <span className="ml-1 text-red-500">*</span>
                   </label>
 
                   <select
                     id="bowlingStyle"
                     value={formData.bowlingStyle}
+                    required
                     onChange={(event) =>
                       updateField(
                         "bowlingStyle",
@@ -1063,9 +1009,10 @@ function TeamOwnerRegistration() {
             {/* Submit */}
             <button
               type="submit"
-              className="mt-8 w-full rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white transition hover:bg-blue-800"
+              disabled={isSubmitting}
+              className="mt-8 w-full rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Register Team & Join Auction
+              {isSubmitting ? "Submitting Registration..." : "Register Team & Join Auction"}
             </button>
 
           </form>

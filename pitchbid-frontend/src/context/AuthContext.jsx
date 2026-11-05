@@ -1,28 +1,56 @@
 
-import { createContext, useContext, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+} from "react";
 
-
-// Create the authentication context
 const AuthContext = createContext(null);
 
-
-// Authentication Provider
 export function AuthProvider({ children }) {
 
-  const [user, setUser] = useState(null);
+  // Restore the existing login session after refresh.
+  const [user, setUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem("pitchbid_user");
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      localStorage.removeItem("pitchbid_user");
+      localStorage.removeItem("pitchbid_token");
+      return null;
+    }
+  });
 
-
-  // Login
+  // Save authenticated user and JWT token.
   const login = (userData) => {
-    setUser(userData);
+
+    localStorage.setItem(
+      "pitchbid_token",
+      userData.token
+    );
+
+    const userDetails = {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+    };
+
+    localStorage.setItem(
+      "pitchbid_user",
+      JSON.stringify(userDetails)
+    );
+
+    setUser(userDetails);
   };
 
-
-  // Logout
+  // Clear authentication details.
   const logout = () => {
+
+    localStorage.removeItem("pitchbid_token");
+    localStorage.removeItem("pitchbid_user");
+
     setUser(null);
   };
-
 
   const value = {
     user,
@@ -31,7 +59,6 @@ export function AuthProvider({ children }) {
     logout,
   };
 
-
   return (
     <AuthContext.Provider value={value}>
       {children}
@@ -39,8 +66,6 @@ export function AuthProvider({ children }) {
   );
 }
 
-
-// Custom hook
 export function useAuth() {
 
   const context = useContext(AuthContext);
@@ -53,4 +78,3 @@ export function useAuth() {
 
   return context;
 }
-
